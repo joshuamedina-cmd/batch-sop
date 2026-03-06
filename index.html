@@ -708,9 +708,6 @@ body {
   </footer>
 </div>
 
-<!-- Hidden iframe for Monday.com -->
-<iframe id="mondayIframe" class="hidden-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
-
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- MODAL -->
@@ -1178,213 +1175,107 @@ function viewCompletedBatch(batchId) {
   showCompletionView(batch);
 }
 
-// ===== MONDAY.COM AUTO-SUBMISSION =====
+// ===== MONDAY.COM DIRECT API SUBMISSION =====
+const MONDAY_API_URL = 'https://api.monday.com/v2';
+const MONDAY_API_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYyNzA3NzcxOSwiYWFpIjoxMSwidWlkIjo3NTA2NTY3OCwiaWFkIjoiMjAyNi0wMi0yOFQwMToxNzowOS4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MjkxNDg2NzMsInJnbiI6InVzZTEifQ.ocD9w0Q-17JqNfU4iZXL4i3frn_Bw4pyVe_fkhJuiPg';
+const MONDAY_BOARD_ID = '18402825582';
+
 function autoSubmitToMonday(batch) {
   updateMondayStatus('submitting', 'Submitting to Monday.com...');
 
-  // Build form data matching the Monday.com form fields
-  const formData = buildMondayFormData(batch);
-
-  // Use a hidden form + iframe to submit
-  submitViaMondayForm(formData, batch);
-}
-
-function buildMondayFormData(batch) {
-  return {
-    name: batch.id || '',
-    date: formatDateForMonday(batch.created),
-    crudeWeight: batch.crudeWeight || '',
-    acetoneVolume: batch.acetoneVolume || '',
-    mitWeight: batch.mitWeight || '',
-    totalDuration: calcDurationHours(batch.soakStart, batch.weighTime),
-    soakOperator: batch.soakOperator || '',
-    soakStart: formatDateForMonday(batch.soakStart),
-    soakEnd: formatDateForMonday(batch.soakEnd),
-    pinnacleOperator: batch.pinnacleOperator || '',
-    pinnacleStart: formatDateForMonday(batch.pinnacleStart),
-    pinnacleEnd: formatDateForMonday(batch.pinnacleEnd),
-    rotaryOperator: batch.rotaryOperator || '',
-    rotaryStart: formatDateForMonday(batch.rotaryStart),
-    volumePinnacle: batch.volumePinnacle || '',
-    finalOperator: batch.finalOperator || '',
-    weighTime: formatDateForMonday(batch.weighTime),
-    comments: batch.comments || ''
-  };
-}
-
-function formatDateForMonday(dtStr) {
-  if (!dtStr) return '';
-  try {
-    const d = new Date(dtStr);
-    if (isNaN(d)) return '';
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const year = d.getFullYear();
-    return month + '/' + day + '/' + year;
-  } catch(e) { return ''; }
-}
-
-function submitViaMondayForm(formData, batch) {
-  // Load Monday.com form in hidden iframe, then fill and submit it
-  const iframe = document.getElementById('mondayIframe');
-  iframe.src = MONDAY_FORM_URL;
-
-  let attempts = 0;
-  const maxAttempts = 30; // 30 seconds max wait
-
-  const tryFill = setInterval(() => {
-    attempts++;
+  // Format date values for Monday.com API (YYYY-MM-DD)
+  function fmtDate(dtStr) {
+    if (!dtStr) return null;
     try {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      const inputs = iframeDoc.querySelectorAll('input, textarea');
-
-      if (inputs.length >= 10) {
-        clearInterval(tryFill);
-        fillMondayForm(iframeDoc, formData, batch);
-        return;
-      }
-    } catch(e) {
-      // Cross-origin — expected, fall back to direct API approach
-      if (attempts >= 3) {
-        clearInterval(tryFill);
-        // Fall back to opening form with URL params approach
-        submitMondayFallback(formData, batch);
-        return;
-      }
-    }
-
-    if (attempts >= maxAttempts) {
-      clearInterval(tryFill);
-      submitMondayFallback(formData, batch);
-    }
-  }, 1000);
-}
-
-function fillMondayForm(doc, formData, batch) {
-  try {
-    const inputs = doc.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], textarea');
-    const fieldValues = [
-      formData.name,
-      formData.date,
-      formData.crudeWeight,
-      formData.acetoneVolume,
-      formData.mitWeight,
-      formData.totalDuration,
-      formData.soakOperator,
-      formData.soakStart,
-      formData.soakEnd,
-      formData.pinnacleOperator,
-      formData.pinnacleStart,
-      formData.pinnacleEnd,
-      formData.rotaryOperator,
-      formData.rotaryStart,
-      formData.volumePinnacle,
-      formData.finalOperator,
-      formData.weighTime
-    ];
-
-    inputs.forEach((input, i) => {
-      if (i < fieldValues.length && fieldValues[i]) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeInputValueSetter.call(input, fieldValues[i]);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-
-    // Try to click submit
-    setTimeout(() => {
-      const submitBtn = doc.querySelector('button[type="submit"], button[class*="submit"], input[type="submit"]');
-      if (submitBtn) {
-        submitBtn.click();
-        updateMondayStatus('success', 'Successfully submitted to Monday.com');
-        toast('Batch data submitted to Monday.com', 'success');
-        markBatchSubmitted(batch.id);
-      } else {
-        updateMondayStatus('success', 'Form filled — awaiting submission');
-      }
-    }, 1000);
-  } catch(e) {
-    submitMondayFallback(formData, batch);
+      const d = new Date(dtStr);
+      if (isNaN(d)) return null;
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    } catch(e) { return null; }
   }
-}
 
-function submitMondayFallback(formData, batch) {
-  // Direct POST approach using fetch to Monday.com forms API
-  // Monday.com forms accept submissions via their public API endpoint
-  const formId = 'b40bfdefbfaf21cdfa4858e51cf6730d';
-  const apiUrl = 'https://forms.monday.com/api/v1/forms/' + formId + '/responses';
+  // Format datetime for Monday.com (includes time)
+  function fmtDateTime(dtStr) {
+    if (!dtStr) return null;
+    try {
+      const d = new Date(dtStr);
+      if (isNaN(d)) return null;
+      const date = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      const time = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':00';
+      return { date: date, time: time };
+    } catch(e) { return null; }
+  }
 
-  // Try submitting via the forms API
-  fetch(apiUrl, {
+  // Build column values object for Monday.com API
+  const columnValues = {};
+
+  // Date column
+  const batchDate = fmtDate(batch.created);
+  if (batchDate) columnValues['date4'] = { date: batchDate };
+
+  // Number columns
+  if (batch.crudeWeight) columnValues['numeric_mm16jm5d'] = batch.crudeWeight;
+  if (batch.acetoneVolume) columnValues['numeric_mm16z0y'] = batch.acetoneVolume;
+  if (batch.mitWeight) columnValues['numeric_mm16jqdt'] = batch.mitWeight;
+  const totalDur = calcDurationHours(batch.soakStart, batch.weighTime);
+  if (totalDur && totalDur !== '0') columnValues['numeric_mm16zgn3'] = totalDur;
+  if (batch.volumePinnacle) columnValues['numeric_mm1616gv'] = batch.volumePinnacle;
+
+  // Text columns
+  if (batch.soakOperator) columnValues['text_mm16qp52'] = batch.soakOperator;
+  if (batch.pinnacleOperator) columnValues['text_mm1667zv'] = batch.pinnacleOperator;
+  if (batch.rotaryOperator) columnValues['text_mm1657r3'] = batch.rotaryOperator;
+  if (batch.finalOperator) columnValues['text_mm164t4y'] = batch.finalOperator;
+
+  // Date/time columns
+  const soakStart = fmtDateTime(batch.soakStart);
+  if (soakStart) columnValues['date_mm16v0fj'] = soakStart;
+  const soakEnd = fmtDateTime(batch.soakEnd);
+  if (soakEnd) columnValues['date_mm16czpf'] = soakEnd;
+  const pinnStart = fmtDateTime(batch.pinnacleStart);
+  if (pinnStart) columnValues['date_mm16t74s'] = pinnStart;
+  const pinnEnd = fmtDateTime(batch.pinnacleEnd);
+  if (pinnEnd) columnValues['date_mm16q9y5'] = pinnEnd;
+  const rotStart = fmtDateTime(batch.rotaryStart);
+  if (rotStart) columnValues['date_mm165byc'] = rotStart;
+  const weighDt = fmtDateTime(batch.weighTime);
+  if (weighDt) columnValues['date_mm16km1a'] = weighDt;
+
+  const colValStr = JSON.stringify(JSON.stringify(columnValues));
+  const itemName = (batch.id || 'Batch').replace(/"/g, '\\"');
+
+  const query = 'mutation { create_item(board_id: ' + MONDAY_BOARD_ID + ', item_name: "' + itemName + '", column_values: ' + colValStr + ') { id } }';
+
+  fetch(MONDAY_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    mode: 'no-cors',
-    body: JSON.stringify({
-      fields: [
-        { id: 'name', value: formData.name },
-        { id: 'date', value: formData.date },
-        { id: 'crude_weight', value: formData.crudeWeight },
-        { id: 'acetone_volume', value: formData.acetoneVolume },
-        { id: 'mit_weight', value: formData.mitWeight },
-        { id: 'total_duration', value: formData.totalDuration },
-        { id: 'soak_operator', value: formData.soakOperator },
-        { id: 'soak_start_time', value: formData.soakStart },
-        { id: 'soak_end_time', value: formData.soakEnd },
-        { id: 'pinnacle_operator', value: formData.pinnacleOperator },
-        { id: 'pinnacle_start_time', value: formData.pinnacleStart },
-        { id: 'pinnacle_end_time', value: formData.pinnacleEnd },
-        { id: 'rotary_operator', value: formData.rotaryOperator },
-        { id: 'rotary_start_time', value: formData.rotaryStart },
-        { id: 'volume_from_pinnacle', value: formData.volumePinnacle },
-        { id: 'final_weight_operator', value: formData.finalOperator },
-        { id: 'weigh_time', value: formData.weighTime }
-      ]
-    })
-  }).then(resp => {
-    // no-cors mode returns opaque response, so we assume success
-    updateMondayStatus('success', 'Batch data sent to Monday.com');
-    toast('Batch data submitted to Monday.com', 'success');
-    markBatchSubmitted(batch.id);
-  }).catch(err => {
-    // If fetch fails entirely, open form in new window with data on clipboard
-    console.warn('Monday.com API submission failed:', err);
-    openMondayWithClipboard(formData, batch);
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': MONDAY_API_TOKEN,
+      'API-Version': '2024-10'
+    },
+    body: JSON.stringify({ query: query })
+  })
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.data && data.data.create_item && data.data.create_item.id) {
+      updateMondayStatus('success', 'Submitted to Monday.com (Item #' + data.data.create_item.id + ')');
+      toast('Batch data submitted to Monday.com', 'success');
+      markBatchSubmitted(batch.id, data.data.create_item.id);
+    } else if (data.errors) {
+      console.error('Monday.com API errors:', data.errors);
+      updateMondayStatus('error', 'Monday.com error: ' + (data.errors[0].message || 'Unknown error'));
+      toast('Monday.com submission failed', 'error');
+      document.getElementById('retryMondayBtn').style.display = '';
+    } else {
+      updateMondayStatus('error', 'Unexpected response from Monday.com');
+      document.getElementById('retryMondayBtn').style.display = '';
+    }
+  })
+  .catch(err => {
+    console.error('Monday.com fetch error:', err);
+    updateMondayStatus('error', 'Network error — could not reach Monday.com');
+    toast('Could not connect to Monday.com', 'error');
+    document.getElementById('retryMondayBtn').style.display = '';
   });
-}
-
-function openMondayWithClipboard(formData, batch) {
-  // Last resort: copy data to clipboard and open the form
-  const clipData = [
-    'Name: ' + formData.name,
-    'Date: ' + formData.date,
-    'Crude Weight: ' + formData.crudeWeight,
-    'Acetone Volume: ' + formData.acetoneVolume,
-    'MIT Weight: ' + formData.mitWeight,
-    'Total Duration: ' + formData.totalDuration,
-    'Soak Operator: ' + formData.soakOperator,
-    'Soak Start Time: ' + formData.soakStart,
-    'Soak End Time: ' + formData.soakEnd,
-    'Pinnacle Operator: ' + formData.pinnacleOperator,
-    'Pinnacle Start Time: ' + formData.pinnacleStart,
-    'Pinnacle End Time: ' + formData.pinnacleEnd,
-    'Rotary Operator: ' + formData.rotaryOperator,
-    'Rotary Start Time: ' + formData.rotaryStart,
-    'Volume from Pinnacle: ' + formData.volumePinnacle,
-    'Final Weight Operator: ' + formData.finalOperator,
-    'Weigh Time: ' + formData.weighTime,
-    'Comments: ' + (formData.comments || '')
-  ].join('\n');
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(clipData).then(() => {
-      toast('Data copied to clipboard — paste into Monday.com form', 'info');
-    }).catch(() => {});
-  }
-
-  window.open(MONDAY_FORM_URL, '_blank', 'noopener,noreferrer');
-  updateMondayStatus('fallback', 'Opened Monday.com form — data copied to clipboard');
-  document.getElementById('retryMondayBtn').style.display = '';
 }
 
 function updateMondayStatus(status, message) {
@@ -1394,26 +1285,23 @@ function updateMondayStatus(status, message) {
   if (status === 'submitting') {
     el.style.background = 'var(--blue-dim)';
     el.style.color = 'var(--blue)';
-    el.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px;">⟳</span>' + message;
+    el.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px;">\u27F3</span>' + message;
   } else if (status === 'success') {
     el.style.background = 'var(--green-dim)';
     el.style.color = 'var(--green)';
-    el.innerHTML = '✓ ' + message;
-  } else if (status === 'fallback') {
-    el.style.background = 'var(--amber-dim)';
-    el.style.color = 'var(--amber)';
-    el.innerHTML = '⚠ ' + message;
+    el.innerHTML = '\u2713 ' + message;
   } else if (status === 'error') {
     el.style.background = 'var(--red-dim)';
     el.style.color = 'var(--red)';
-    el.innerHTML = '✗ ' + message;
+    el.innerHTML = '\u2717 ' + message;
   }
 }
 
-function markBatchSubmitted(batchId) {
+function markBatchSubmitted(batchId, mondayItemId) {
   const batch = state.completedBatches.find(b => b.id === batchId);
   if (batch) {
     batch.mondaySubmitted = true;
+    batch.mondayItemId = mondayItemId;
     batch.mondaySubmittedAt = new Date().toISOString();
     saveState();
   }
@@ -1422,6 +1310,7 @@ function markBatchSubmitted(batchId) {
 function retryMondaySubmit() {
   const batch = state._lastCompleted;
   if (!batch) { toast('No batch data', 'error'); return; }
+  document.getElementById('retryMondayBtn').style.display = 'none';
   autoSubmitToMonday(batch);
 }
 
