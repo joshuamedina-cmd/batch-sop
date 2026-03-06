@@ -1159,6 +1159,53 @@ function completeBatch() {
 
   // Auto-submit to Monday.com
   autoSubmitToMonday(completedBatch);
+
+  // Auto-submit to Aldous Batch Records board
+  submitToAldousBoard(completedBatch);
+}
+
+function submitToAldousBoard(batch) {
+  var MONDAY_API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYyNzA3NzcxOSwiYWFpIjoxMSwidWlkIjo3NTA2NTY3OCwiaWFkIjoiMjAyNi0wMi0yOFQwMToxNzowOS4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MjkxNDg2NzMsInJnbiI6InVzZTEifQ.ocD9w0Q-17JqNfU4iZXL4i3frn_Bw4pyVe_fkhJuiPg';
+  var ALDOUS_BOARD_ID = 18402821844;
+
+  var dur = calcDuration(batch.soakStart, batch.weighTime);
+  var dateStr = '';
+  try {
+    var d = new Date(batch.created);
+    if (!isNaN(d)) {
+      dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+  } catch(e) {}
+
+  var columnValues = JSON.stringify({
+    "date4": {"date": dateStr},
+    "text_mm166879": batch.id || '',
+    "text_mm16pd4m": batch.finalOperator || batch.soakOperator || '',
+    "text_mm1635": dur || '',
+    "numeric_mm16yzab": parseFloat(batch.mitWeight) || 0
+  });
+
+  var itemName = (batch.id || '').replace(/"/g, '\\"');
+  var mutation = 'mutation { create_item (board_id: ' + ALDOUS_BOARD_ID + ', item_name: "' + itemName + '", column_values: ' + JSON.stringify(columnValues) + ') { id } }';
+
+  fetch('https://api.monday.com/v2', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': MONDAY_API_KEY
+    },
+    body: JSON.stringify({ query: mutation })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.data && data.data.create_item) {
+      console.log('Aldous board item created:', data.data.create_item.id);
+      toast('Batch synced to Aldous board!', 'success');
+    } else {
+      console.warn('Aldous board response:', JSON.stringify(data));
+    }
+  }).catch(function(err) {
+    console.warn('Aldous board API error:', err);
+  });
 }
 
 function showCompletionView(batch) {
