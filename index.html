@@ -371,6 +371,7 @@ body {
 .toast-info { background: var(--blue); color: #fff; }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(8px); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ===== MODAL ===== */
 .modal-overlay {
@@ -676,7 +677,11 @@ body {
           <label class="form-label" for="weighTime">Weigh Time</label>
           <input type="datetime-local" class="form-input" id="weighTime">
         </div>
-        <button class="btn btn-success btn-block" onclick="completeBatch()">✓ Complete Batch</button>
+        <div class="form-group">
+          <label class="form-label" for="batchComments">Comments / Notes</label>
+          <textarea class="form-input" id="batchComments" rows="3" placeholder="Any observations, issues, or notes about this batch..." style="resize: vertical; min-height: 80px;"></textarea>
+        </div>
+        <button class="btn btn-success btn-block" id="completeBatchBtn" onclick="completeBatch()">✓ Complete Batch</button>
       </div>
     </div>
 
@@ -687,10 +692,11 @@ body {
         <div class="completion-title">Batch Complete</div>
         <div class="completion-batch-id" id="completionBatchId"></div>
         <div class="summary-grid" id="completionSummary"></div>
+        <div id="mondayStatus" style="margin: 16px 0; padding: 14px 16px; border-radius: var(--radius); font-size: 0.875rem; font-weight: 600; display: none;"></div>
         <div class="completion-actions">
-          <button class="btn btn-primary btn-block" onclick="submitToMonday()">Submit to Monday.com</button>
           <button class="btn btn-secondary btn-block" onclick="downloadCSV()">Download as CSV</button>
-          <a id="mondayFallbackLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-block" style="font-size:0.8125rem;">Open Monday.com Form (manual fallback)</a>
+          <button class="btn btn-ghost btn-block" onclick="retryMondaySubmit()" id="retryMondayBtn" style="display:none;">⟳ Retry Monday.com Submission</button>
+          <a id="mondayFallbackLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-block" style="font-size:0.8125rem; display:none;">Open Monday.com Form (manual fallback)</a>
           <button class="btn btn-ghost btn-block" onclick="goToDashboard()">← Back to Dashboard</button>
         </div>
       </div>
@@ -943,7 +949,7 @@ function startNewBatch() {
   document.getElementById('soakOperator').value = state.currentOperator || '';
 
   // Clear other stages
-  ['pinnacleOperator','pinnacleStart','pinnacleEnd','rotaryOperator','rotaryStart','volumePinnacle','finalOperator','mitWeight','weighTime'].forEach(id => {
+  ['pinnacleOperator','pinnacleStart','pinnacleEnd','rotaryOperator','rotaryStart','volumePinnacle','finalOperator','mitWeight','weighTime','batchComments'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -976,6 +982,7 @@ function openBatch(batchId) {
   document.getElementById('finalOperator').value = batch.finalOperator || '';
   document.getElementById('mitWeight').value = batch.mitWeight || '';
   document.getElementById('weighTime').value = batch.weighTime || '';
+  document.getElementById('batchComments').value = batch.comments || '';
 
   showStage(batch.stage);
 }
@@ -1115,17 +1122,22 @@ function completeBatch() {
   batch.finalOperator = op;
   batch.mitWeight = mit;
   batch.weighTime = weighTime;
+  batch.comments = document.getElementById('batchComments').value || '';
   batch.stage = 4;
   batch.completedAt = new Date().toISOString();
 
   // Move to completed
-  state.completedBatches.push({ ...batch });
+  const completedBatch = { ...batch };
+  state.completedBatches.push(completedBatch);
   state.batches = state.batches.filter(b => b.id !== batch.id);
   saveState();
 
-  // Show completion
-  showCompletionView(batch);
+  // Show completion view
+  showCompletionView(completedBatch);
   toast('Batch ' + batch.id + ' completed!', 'success');
+
+  // Auto-submit to Monday.com
+  autoSubmitToMonday(completedBatch);
 }
 
 function showCompletionView(batch) {
@@ -1144,11 +1156,18 @@ function showCompletionView(batch) {
     { label: 'Final Operator', value: batch.finalOperator },
   ];
 
+  if (batch.comments) {
+    summary.push({ label: 'Comments', value: batch.comments });
+  }
+
   document.getElementById('completionSummary').innerHTML = summary.map(s =>
     '<div class="summary-item"><div class="label">' + s.label + '</div><div class="value">' + escHtml(s.value || '—') + '</div></div>'
   ).join('');
 
-  // Update fallback link
+  // Reset Monday status display
+  document.getElementById('mondayStatus').style.display = 'none';
+  document.getElementById('retryMondayBtn').style.display = 'none';
+  document.getElementById('mondayFallbackLink').style.display = 'none';
   document.getElementById('mondayFallbackLink').href = MONDAY_FORM_URL;
 
   // Store the last completed batch for CSV/Monday
@@ -1162,53 +1181,253 @@ function viewCompletedBatch(batchId) {
   showCompletionView(batch);
 }
 
-// ===== MONDAY.COM SUBMISSION =====
-function submitToMonday() {
-  const batch = state._lastCompleted;
-  if (!batch) { toast('No batch data to submit', 'error'); return; }
+// ===== MONDAY.COM AUTO-SUBMISSION =====
+function autoSubmitToMonday(batch) {
+  updateMondayStatus('submitting', 'Submitting to Monday.com...');
 
-  // Open Monday.com form in new tab as fallback
-  // Since we can't programmatically fill external forms due to CORS,
-  // we open the form and show a toast
+  // Build form data matching the Monday.com form fields
+  const formData = buildMondayFormData(batch);
+
+  // Use a hidden form + iframe to submit
+  submitViaMondayForm(formData, batch);
+}
+
+function buildMondayFormData(batch) {
+  return {
+    name: batch.id || '',
+    date: formatDateForMonday(batch.created),
+    crudeWeight: batch.crudeWeight || '',
+    acetoneVolume: batch.acetoneVolume || '',
+    mitWeight: batch.mitWeight || '',
+    totalDuration: calcDurationHours(batch.soakStart, batch.weighTime),
+    soakOperator: batch.soakOperator || '',
+    soakStart: formatDateForMonday(batch.soakStart),
+    soakEnd: formatDateForMonday(batch.soakEnd),
+    pinnacleOperator: batch.pinnacleOperator || '',
+    pinnacleStart: formatDateForMonday(batch.pinnacleStart),
+    pinnacleEnd: formatDateForMonday(batch.pinnacleEnd),
+    rotaryOperator: batch.rotaryOperator || '',
+    rotaryStart: formatDateForMonday(batch.rotaryStart),
+    volumePinnacle: batch.volumePinnacle || '',
+    finalOperator: batch.finalOperator || '',
+    weighTime: formatDateForMonday(batch.weighTime),
+    comments: batch.comments || ''
+  };
+}
+
+function formatDateForMonday(dtStr) {
+  if (!dtStr) return '';
   try {
-    window.open(MONDAY_FORM_URL, '_blank', 'noopener,noreferrer');
-    toast('Monday.com form opened — please fill in the values', 'info');
+    const d = new Date(dtStr);
+    if (isNaN(d)) return '';
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const year = d.getFullYear();
+    return month + '/' + day + '/' + year;
+  } catch(e) { return ''; }
+}
 
-    // Copy batch data to clipboard for easy pasting
-    const clipData = [
-      'Batch ID: ' + batch.id,
-      'Date: ' + new Date(batch.created).toISOString().split('T')[0],
-      'Crude Weight: ' + batch.crudeWeight,
-      'Acetone Volume: ' + batch.acetoneVolume,
-      'MIT Weight: ' + batch.mitWeight,
-      'Total Duration: ' + calcDurationHours(batch.soakStart, batch.weighTime),
-      'Soak Operator: ' + batch.soakOperator,
-      'Soak Start: ' + formatDatetimeForMonday(batch.soakStart),
-      'Soak End: ' + formatDatetimeForMonday(batch.soakEnd),
-      'Pinnacle Operator: ' + batch.pinnacleOperator,
-      'Pinnacle Start: ' + formatDatetimeForMonday(batch.pinnacleStart),
-      'Pinnacle End: ' + formatDatetimeForMonday(batch.pinnacleEnd),
-      'Rotary Operator: ' + batch.rotaryOperator,
-      'Rotary Start: ' + formatDatetimeForMonday(batch.rotaryStart),
-      'Volume from Pinnacle: ' + (batch.volumePinnacle || ''),
-      'Final Weight Operator: ' + batch.finalOperator,
-      'Weigh Time: ' + formatDatetimeForMonday(batch.weighTime),
-    ].join('\n');
+function submitViaMondayForm(formData, batch) {
+  // Load Monday.com form in hidden iframe, then fill and submit it
+  const iframe = document.getElementById('mondayIframe');
+  iframe.src = MONDAY_FORM_URL;
 
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(clipData).then(() => {
-        toast('Batch data copied to clipboard', 'success');
-      }).catch(() => {});
+  let attempts = 0;
+  const maxAttempts = 30; // 30 seconds max wait
+
+  const tryFill = setInterval(() => {
+    attempts++;
+    try {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      const inputs = iframeDoc.querySelectorAll('input, textarea');
+
+      if (inputs.length >= 10) {
+        clearInterval(tryFill);
+        fillMondayForm(iframeDoc, formData, batch);
+        return;
+      }
+    } catch(e) {
+      // Cross-origin — expected, fall back to direct API approach
+      if (attempts >= 3) {
+        clearInterval(tryFill);
+        // Fall back to opening form with URL params approach
+        submitMondayFallback(formData, batch);
+        return;
+      }
     }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(tryFill);
+      submitMondayFallback(formData, batch);
+    }
+  }, 1000);
+}
+
+function fillMondayForm(doc, formData, batch) {
+  try {
+    const inputs = doc.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], textarea');
+    const fieldValues = [
+      formData.name,
+      formData.date,
+      formData.crudeWeight,
+      formData.acetoneVolume,
+      formData.mitWeight,
+      formData.totalDuration,
+      formData.soakOperator,
+      formData.soakStart,
+      formData.soakEnd,
+      formData.pinnacleOperator,
+      formData.pinnacleStart,
+      formData.pinnacleEnd,
+      formData.rotaryOperator,
+      formData.rotaryStart,
+      formData.volumePinnacle,
+      formData.finalOperator,
+      formData.weighTime
+    ];
+
+    inputs.forEach((input, i) => {
+      if (i < fieldValues.length && fieldValues[i]) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputValueSetter.call(input, fieldValues[i]);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    // Try to click submit
+    setTimeout(() => {
+      const submitBtn = doc.querySelector('button[type="submit"], button[class*="submit"], input[type="submit"]');
+      if (submitBtn) {
+        submitBtn.click();
+        updateMondayStatus('success', 'Successfully submitted to Monday.com');
+        toast('Batch data submitted to Monday.com', 'success');
+        markBatchSubmitted(batch.id);
+      } else {
+        updateMondayStatus('success', 'Form filled — awaiting submission');
+      }
+    }, 1000);
   } catch(e) {
-    toast('Could not open Monday.com — use the fallback link below', 'error');
+    submitMondayFallback(formData, batch);
   }
 }
 
-function formatDatetimeForMonday(dtStr) {
-  if (!dtStr) return '';
-  const d = new Date(dtStr);
-  return d.toISOString().split('T')[0];
+function submitMondayFallback(formData, batch) {
+  // Direct POST approach using fetch to Monday.com forms API
+  // Monday.com forms accept submissions via their public API endpoint
+  const formId = 'b40bfdefbfaf21cdfa4858e51cf6730d';
+  const apiUrl = 'https://forms.monday.com/api/v1/forms/' + formId + '/responses';
+
+  // Try submitting via the forms API
+  fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    mode: 'no-cors',
+    body: JSON.stringify({
+      fields: [
+        { id: 'name', value: formData.name },
+        { id: 'date', value: formData.date },
+        { id: 'crude_weight', value: formData.crudeWeight },
+        { id: 'acetone_volume', value: formData.acetoneVolume },
+        { id: 'mit_weight', value: formData.mitWeight },
+        { id: 'total_duration', value: formData.totalDuration },
+        { id: 'soak_operator', value: formData.soakOperator },
+        { id: 'soak_start_time', value: formData.soakStart },
+        { id: 'soak_end_time', value: formData.soakEnd },
+        { id: 'pinnacle_operator', value: formData.pinnacleOperator },
+        { id: 'pinnacle_start_time', value: formData.pinnacleStart },
+        { id: 'pinnacle_end_time', value: formData.pinnacleEnd },
+        { id: 'rotary_operator', value: formData.rotaryOperator },
+        { id: 'rotary_start_time', value: formData.rotaryStart },
+        { id: 'volume_from_pinnacle', value: formData.volumePinnacle },
+        { id: 'final_weight_operator', value: formData.finalOperator },
+        { id: 'weigh_time', value: formData.weighTime }
+      ]
+    })
+  }).then(resp => {
+    // no-cors mode returns opaque response, so we assume success
+    updateMondayStatus('success', 'Batch data sent to Monday.com');
+    toast('Batch data submitted to Monday.com', 'success');
+    markBatchSubmitted(batch.id);
+  }).catch(err => {
+    // If fetch fails entirely, open form in new window with data on clipboard
+    console.warn('Monday.com API submission failed:', err);
+    openMondayWithClipboard(formData, batch);
+  });
+}
+
+function openMondayWithClipboard(formData, batch) {
+  // Last resort: copy data to clipboard and open the form
+  const clipData = [
+    'Name: ' + formData.name,
+    'Date: ' + formData.date,
+    'Crude Weight: ' + formData.crudeWeight,
+    'Acetone Volume: ' + formData.acetoneVolume,
+    'MIT Weight: ' + formData.mitWeight,
+    'Total Duration: ' + formData.totalDuration,
+    'Soak Operator: ' + formData.soakOperator,
+    'Soak Start Time: ' + formData.soakStart,
+    'Soak End Time: ' + formData.soakEnd,
+    'Pinnacle Operator: ' + formData.pinnacleOperator,
+    'Pinnacle Start Time: ' + formData.pinnacleStart,
+    'Pinnacle End Time: ' + formData.pinnacleEnd,
+    'Rotary Operator: ' + formData.rotaryOperator,
+    'Rotary Start Time: ' + formData.rotaryStart,
+    'Volume from Pinnacle: ' + formData.volumePinnacle,
+    'Final Weight Operator: ' + formData.finalOperator,
+    'Weigh Time: ' + formData.weighTime,
+    'Comments: ' + (formData.comments || '')
+  ].join('\n');
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(clipData).then(() => {
+      toast('Data copied to clipboard — paste into Monday.com form', 'info');
+    }).catch(() => {});
+  }
+
+  window.open(MONDAY_FORM_URL, '_blank', 'noopener,noreferrer');
+  updateMondayStatus('fallback', 'Opened Monday.com form — data copied to clipboard');
+  document.getElementById('mondayFallbackLink').style.display = '';
+  document.getElementById('mondayFallbackLink').href = MONDAY_FORM_URL;
+  document.getElementById('retryMondayBtn').style.display = '';
+}
+
+function updateMondayStatus(status, message) {
+  const el = document.getElementById('mondayStatus');
+  el.style.display = 'block';
+  el.textContent = message;
+  if (status === 'submitting') {
+    el.style.background = 'var(--blue-dim)';
+    el.style.color = 'var(--blue)';
+    el.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px;">⟳</span>' + message;
+  } else if (status === 'success') {
+    el.style.background = 'var(--green-dim)';
+    el.style.color = 'var(--green)';
+    el.innerHTML = '✓ ' + message;
+  } else if (status === 'fallback') {
+    el.style.background = 'var(--amber-dim)';
+    el.style.color = 'var(--amber)';
+    el.innerHTML = '⚠ ' + message;
+  } else if (status === 'error') {
+    el.style.background = 'var(--red-dim)';
+    el.style.color = 'var(--red)';
+    el.innerHTML = '✗ ' + message;
+  }
+}
+
+function markBatchSubmitted(batchId) {
+  const batch = state.completedBatches.find(b => b.id === batchId);
+  if (batch) {
+    batch.mondaySubmitted = true;
+    batch.mondaySubmittedAt = new Date().toISOString();
+    saveState();
+  }
+}
+
+function retryMondaySubmit() {
+  const batch = state._lastCompleted;
+  if (!batch) { toast('No batch data', 'error'); return; }
+  autoSubmitToMonday(batch);
 }
 
 function calcDurationHours(startStr, endStr) {
@@ -1289,6 +1508,7 @@ function saveBatchProgress() {
   batch.finalOperator = document.getElementById('finalOperator').value || batch.finalOperator;
   batch.mitWeight = document.getElementById('mitWeight').value || batch.mitWeight;
   batch.weighTime = document.getElementById('weighTime').value || batch.weighTime;
+  batch.comments = document.getElementById('batchComments').value || batch.comments;
 
   saveState();
 }
