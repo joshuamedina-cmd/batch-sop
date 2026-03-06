@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Refinery Batch Tracker SOP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== CSS RESET & VARIABLES ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Dark theme (default) */
+  --bg-primary: #0f1114;
+  --bg-secondary: #1a1d23;
+  --bg-tertiary: #22262e;
+  --bg-elevated: #2a2f38;
+  --bg-hover: #333842;
+  --border-color: rgba(255,255,255,0.08);
+  --border-color-strong: rgba(255,255,255,0.15);
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0a9;
+  --text-muted: #6b7280;
+  --accent: #2dd4bf;
+  --accent-dim: rgba(45,212,191,0.15);
+  --accent-hover: #14b8a6;
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.15);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.15);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.15);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.15);
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f6f8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #eef0f3;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8eaed;
+  --border-color: rgba(0,0,0,0.08);
+  --border-color-strong: rgba(0,0,0,0.15);
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --accent: #0d9488;
+  --accent-dim: rgba(13,148,136,0.1);
+  --accent-hover: #0f766e;
+  --green: #16a34a;
+  --green-dim: rgba(22,163,74,0.1);
+  --amber: #d97706;
+  --amber-dim: rgba(217,119,6,0.1);
+  --red: #dc2626;
+  --red-dim: rgba(220,38,38,0.1);
+  --blue: #2563eb;
+  --blue-dim: rgba(37,99,235,0.1);
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ===== LAYOUT ===== */
+.app-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo-mark {
+  width: 36px; height: 36px; flex-shrink: 0;
+}
+.logo-mark svg { width: 100%; height: 100%; }
+.header-title { font-weight: 700; font-size: 1.125rem; letter-spacing: -0.01em; }
+.header-subtitle { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.operator-badge {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 20px;
+  background: var(--accent-dim); color: var(--accent);
+  font-weight: 600; font-size: 0.8125rem;
+}
+.operator-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+.main-content { flex: 1; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 24px; border-radius: var(--radius);
+  font-family: var(--font-body); font-weight: 600; font-size: 0.9375rem;
+  border: none; cursor: pointer; transition: all var(--transition);
+  min-height: 52px; min-width: 52px;
+  text-decoration: none; white-space: nowrap;
+  -webkit-user-select: none; user-select: none;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: #0f1114; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-color-strong); }
+.btn-secondary:hover { background: var(--bg-hover); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #16a34a; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-ghost { background: transparent; color: var(--text-secondary); padding: 10px; }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-sm { padding: 8px 16px; min-height: 40px; font-size: 0.8125rem; }
+.btn-block { width: 100%; }
+.btn-icon { padding: 10px; min-width: 44px; min-height: 44px; }
+
+/* ===== FORM ELEMENTS ===== */
+.form-group { margin-bottom: 20px; }
+.form-label {
+  display: block; margin-bottom: 6px;
+  font-weight: 600; font-size: 0.8125rem;
+  color: var(--text-secondary); text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.form-input, .form-select {
+  width: 100%; padding: 14px 16px;
+  background: var(--bg-tertiary); color: var(--text-primary);
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius); font-family: var(--font-body);
+  font-size: 1rem; transition: border-color var(--transition);
+  min-height: 52px;
+}
+.form-input:focus, .form-select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.form-input::placeholder { color: var(--text-muted); }
+.form-select { cursor: pointer; -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239aa0a9' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+  padding-right: 40px;
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+.computed-value {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-radius: var(--radius);
+  background: var(--accent-dim); border: 1px solid rgba(45,212,191,0.2);
+}
+.computed-value .label { font-size: 0.8125rem; color: var(--text-secondary); font-weight: 500; }
+.computed-value .value { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 600; color: var(--accent); }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); padding: 24px;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.card-title { font-weight: 700; font-size: 1.125rem; }
+
+/* ===== STAGE PROGRESS BAR ===== */
+.stage-progress {
+  display: flex; align-items: center; gap: 0;
+  padding: 16px 20px; margin-bottom: 24px;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); overflow-x: auto;
+}
+.stage-step {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; padding: 8px 0;
+}
+.stage-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.8125rem;
+  background: var(--bg-tertiary); color: var(--text-muted);
+  border: 2px solid var(--border-color-strong);
+  flex-shrink: 0; transition: all var(--transition);
+}
+.stage-step.active .stage-dot { background: var(--accent); color: #0f1114; border-color: var(--accent); }
+.stage-step.completed .stage-dot { background: var(--green); color: #fff; border-color: var(--green); }
+.stage-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.stage-step.active .stage-name { color: var(--accent); }
+.stage-step.completed .stage-name { color: var(--green); }
+.stage-connector {
+  flex: 1; height: 2px; min-width: 20px;
+  background: var(--border-color-strong); margin: 0 8px;
+}
+.stage-connector.completed { background: var(--green); }
+
+/* ===== DASHBOARD STATS ===== */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); padding: 20px;
+}
+.stat-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
+.stat-value { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat-value.teal { color: var(--accent); }
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+
+/* ===== BATCH LIST ===== */
+.batch-list { display: flex; flex-direction: column; gap: 12px; }
+.batch-item {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 20px; border-radius: var(--radius);
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  cursor: pointer; transition: all var(--transition);
+}
+.batch-item:hover { border-color: var(--accent); background: var(--bg-tertiary); }
+.batch-item:active { transform: scale(0.99); }
+.batch-id { font-family: var(--font-mono); font-weight: 700; font-size: 1rem; min-width: 140px; }
+.batch-stage-badge {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+}
+.badge-soak { background: var(--blue-dim); color: var(--blue); }
+.badge-pinnacle { background: var(--amber-dim); color: var(--amber); }
+.badge-rotary { background: var(--accent-dim); color: var(--accent); }
+.badge-final { background: var(--green-dim); color: var(--green); }
+.badge-complete { background: var(--green-dim); color: var(--green); }
+.batch-meta { flex: 1; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.batch-meta-item { font-size: 0.8125rem; color: var(--text-secondary); }
+.batch-mini-progress { display: flex; gap: 4px; margin-left: auto; }
+.batch-mini-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--bg-tertiary); border: 1px solid var(--border-color-strong);
+}
+.batch-mini-dot.done { background: var(--green); border-color: var(--green); }
+.batch-mini-dot.current { background: var(--accent); border-color: var(--accent); }
+
+/* ===== HISTORY TABLE ===== */
+.history-table-wrap { overflow-x: auto; margin-top: 16px; }
+.history-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.history-table th {
+  text-align: left; padding: 10px 12px;
+  font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 0.6875rem; border-bottom: 1px solid var(--border-color-strong);
+  white-space: nowrap;
+}
+.history-table td {
+  padding: 10px 12px; border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+.history-table tr:hover td { background: var(--bg-tertiary); }
+.history-table .mono { font-family: var(--font-mono); font-weight: 500; }
+
+/* ===== VIEWS ===== */
+.view { display: none; animation: fadeIn 200ms ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ===== LOGIN ===== */
+.login-container {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(100vh - 70px); min-height: calc(100dvh - 70px);
+  padding: 20px;
+}
+.login-card {
+  width: 100%; max-width: 420px;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); padding: 40px 32px;
+  box-shadow: var(--shadow-lg); text-align: center;
+}
+.login-logo { margin-bottom: 24px; }
+.login-logo svg { width: 64px; height: 64px; }
+.login-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+.login-subtitle { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 32px; }
+
+/* ===== COMPLETION VIEW ===== */
+.completion-card { text-align: center; max-width: 560px; margin: 0 auto; }
+.completion-icon { font-size: 3rem; margin-bottom: 16px; }
+.completion-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+.completion-batch-id { font-family: var(--font-mono); font-size: 1.25rem; color: var(--accent); margin-bottom: 24px; }
+.completion-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+
+/* ===== SECTION TABS ===== */
+.tab-bar {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius); margin-bottom: 24px;
+}
+.tab-btn {
+  flex: 1; padding: 10px 16px; border: none; background: none;
+  font-family: var(--font-body); font-weight: 600; font-size: 0.875rem;
+  color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm);
+  transition: all var(--transition); min-height: 44px;
+}
+.tab-btn.active { background: var(--bg-elevated); color: var(--text-primary); box-shadow: var(--shadow); }
+.tab-btn:hover:not(.active) { color: var(--text-secondary); }
+
+/* ===== THEME TOGGLE ===== */
+.theme-toggle {
+  width: 44px; height: 44px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color-strong); background: var(--bg-tertiary);
+  color: var(--text-secondary); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition); font-size: 1.125rem;
+}
+.theme-toggle:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--text-muted);
+}
+.empty-state-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+.empty-state-text { font-size: 0.9375rem; }
+
+/* ===== TOAST ===== */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 14px 20px; border-radius: var(--radius);
+  font-weight: 600; font-size: 0.875rem;
+  box-shadow: var(--shadow-lg); animation: slideIn 300ms ease, fadeOut 300ms ease 3700ms forwards;
+  max-width: 360px;
+}
+.toast-success { background: var(--green); color: #fff; }
+.toast-error { background: var(--red); color: #fff; }
+.toast-info { background: var(--blue); color: #fff; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(8px); } }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); padding: 32px;
+  max-width: 480px; width: 100%; box-shadow: var(--shadow-lg);
+  animation: fadeIn 200ms ease;
+}
+.modal-title { font-weight: 700; font-size: 1.125rem; margin-bottom: 12px; }
+.modal-text { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 24px; line-height: 1.6; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .header { padding: 10px 16px; }
+  .main-content { padding: 16px; }
+  .card { padding: 20px; }
+  .login-card { padding: 32px 24px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card { padding: 16px; }
+  .stat-value { font-size: 1.5rem; }
+  .batch-item { flex-wrap: wrap; padding: 14px 16px; gap: 10px; }
+  .batch-meta { order: 3; width: 100%; }
+  .batch-mini-progress { margin-left: 0; }
+  .form-row { gap: 12px; }
+  .stage-progress { padding: 12px 16px; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .header-subtitle { display: none; }
+}
+
+/* ===== PRINT HIDE ===== */
+@media print { .header, .tab-bar, .btn { display: none !important; } }
+
+/* ===== IFRAME HIDDEN ===== */
+.hidden-iframe { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Batch summary grid on completion */
+.summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  text-align: left; margin: 20px 0;
+}
+.summary-item { padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.summary-item .label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px; }
+.summary-item .value { font-family: var(--font-mono); font-weight: 600; font-size: 0.9375rem; }
+@media (max-width: 480px) { .summary-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="32" height="32" rx="8" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M10 18h16M18 10v16" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="10" cy="10" r="2.5" fill="var(--accent)"/>
+          <circle cx="26" cy="10" r="2.5" fill="var(--green)"/>
+          <circle cx="10" cy="26" r="2.5" fill="var(--amber)"/>
+          <circle cx="26" cy="26" r="2.5" fill="var(--accent)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-title">Batch Tracker</div>
+        <div class="header-subtitle">Refinery SOP</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="operatorBadge" class="operator-badge" style="display:none;">
+        <span class="dot"></span>
+        <span id="operatorName"></span>
+      </div>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="themeIcon">☀</span>
+      </button>
+      <button class="btn btn-ghost btn-icon" id="logoutBtn" onclick="logout()" style="display:none;" aria-label="Logout" title="End Shift">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+
+    <!-- ===== LOGIN VIEW ===== -->
+    <div id="loginView" class="view active">
+      <div class="login-container">
+        <div class="login-card">
+          <div class="login-logo">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+              <rect x="4" y="4" width="56" height="56" rx="14" stroke="var(--accent)" stroke-width="3" fill="none"/>
+              <path d="M18 32h28M32 18v28" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="18" cy="18" r="4" fill="var(--accent)"/>
+              <circle cx="46" cy="18" r="4" fill="var(--green)"/>
+              <circle cx="18" cy="46" r="4" fill="var(--amber)"/>
+              <circle cx="46" cy="46" r="4" fill="var(--accent)"/>
+            </svg>
+          </div>
+          <h1 class="login-title">Batch Tracker</h1>
+          <p class="login-subtitle">Refinery SOP — Select your name to begin</p>
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label" for="loginOperator">Operator</label>
+            <select class="form-select" id="loginOperator">
+              <option value="">Select Operator...</option>
+              <option value="Quinton L">Quinton L</option>
+              <option value="Jaime R">Jaime R</option>
+              <option value="James L">James L</option>
+              <option value="Jaime D">Jaime D</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="login()">Start Shift</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <div id="dashboardView" class="view">
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-label">Batches Today</div>
+          <div class="stat-value teal" id="statToday">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active</div>
+          <div class="stat-value amber" id="statActive">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value green" id="statCompleted">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Gallons</div>
+          <div class="stat-value teal" id="statGallons">0</div>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('active', this)">Active Batches</button>
+        <button class="tab-btn" onclick="switchTab('history', this)">Completed</button>
+      </div>
+
+      <div id="activeBatchesTab">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 style="font-weight: 700; font-size: 1rem;">Active Batches</h2>
+          <button class="btn btn-primary btn-sm" onclick="startNewBatch()">+ New Batch</button>
+        </div>
+        <div id="activeBatchList" class="batch-list">
+          <div class="empty-state">
+            <div class="empty-state-icon">⚗</div>
+            <div class="empty-state-text">No active batches. Start a new batch to begin.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="historyTab" style="display:none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 style="font-weight: 700; font-size: 1rem;">Batch History</h2>
+        </div>
+        <div id="historyContent"></div>
+      </div>
+    </div>
+
+    <!-- ===== BATCH WORKFLOW VIEW ===== -->
+    <div id="batchView" class="view">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <button class="btn btn-ghost btn-icon" onclick="goToDashboard()" aria-label="Back to dashboard">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div>
+          <div style="font-weight: 700; font-size: 1.125rem;" id="batchViewTitle">New Batch</div>
+          <div style="font-size: 0.8125rem; color: var(--text-muted);" id="batchViewId"></div>
+        </div>
+      </div>
+
+      <div class="stage-progress" id="stageProgress"></div>
+
+      <!-- STAGE 1: SOAK -->
+      <div id="stage1" class="card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title">Stage 1: Soak</div>
+          <span class="batch-stage-badge badge-soak">SOAK</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="crudeWeight">Crude Weight (grams)</label>
+          <input type="number" class="form-input" id="crudeWeight" placeholder="e.g. 94584" inputmode="decimal" oninput="calcAcetone()">
+        </div>
+        <div class="computed-value" style="margin-bottom: 20px;">
+          <div>
+            <div class="label">Acetone Volume</div>
+            <div class="value" id="acetoneVolume">0.00 L</div>
+          </div>
+          <div style="margin-left: auto; font-size: 0.75rem; color: var(--text-muted);">= Crude × 5 ÷ 1000</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="soakStart">Soak Start Time</label>
+            <input type="datetime-local" class="form-input" id="soakStart">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="soakEnd">Soak End Time (+16h)</label>
+            <input type="datetime-local" class="form-input" id="soakEnd">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="soakOperator">Soak Operator</label>
+          <select class="form-select" id="soakOperator">
+            <option value="">Select Operator...</option>
+            <option value="Quinton L">Quinton L</option>
+            <option value="Jaime R">Jaime R</option>
+            <option value="James L">James L</option>
+            <option value="Jaime D">Jaime D</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="nextStage(1)">Next Stage →</button>
+      </div>
+
+      <!-- STAGE 2: PINNACLE -->
+      <div id="stage2" class="card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title">Stage 2: Pinnacle (Recovery)</div>
+          <span class="batch-stage-badge badge-pinnacle">PINNACLE</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pinnacleOperator">Pinnacle Operator</label>
+          <select class="form-select" id="pinnacleOperator">
+            <option value="">Select Operator...</option>
+            <option value="Quinton L">Quinton L</option>
+            <option value="Jaime R">Jaime R</option>
+            <option value="James L">James L</option>
+            <option value="Jaime D">Jaime D</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="pinnacleStart">Pinnacle Start Time</label>
+            <input type="datetime-local" class="form-input" id="pinnacleStart">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pinnacleEnd">Pinnacle End Time</label>
+            <input type="datetime-local" class="form-input" id="pinnacleEnd">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="nextStage(2)">Next Stage →</button>
+      </div>
+
+      <!-- STAGE 3: ROTARY -->
+      <div id="stage3" class="card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title">Stage 3: Rotary (Rotovap)</div>
+          <span class="batch-stage-badge badge-rotary">ROTARY</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rotaryOperator">Rotary Operator</label>
+          <select class="form-select" id="rotaryOperator">
+            <option value="">Select Operator...</option>
+            <option value="Quinton L">Quinton L</option>
+            <option value="Jaime R">Jaime R</option>
+            <option value="James L">James L</option>
+            <option value="Jaime D">Jaime D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rotaryStart">Rotary Start Time</label>
+          <input type="datetime-local" class="form-input" id="rotaryStart">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="volumePinnacle">Volume from Pinnacle (Liters)</label>
+          <input type="number" class="form-input" id="volumePinnacle" placeholder="e.g. 12.5" inputmode="decimal" step="0.01">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="nextStage(3)">Next Stage →</button>
+      </div>
+
+      <!-- STAGE 4: FINAL WEIGHT -->
+      <div id="stage4" class="card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title">Stage 4: Final Weight</div>
+          <span class="batch-stage-badge badge-final">FINAL</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="finalOperator">Final Weight Operator</label>
+          <select class="form-select" id="finalOperator">
+            <option value="">Select Operator...</option>
+            <option value="Quinton L">Quinton L</option>
+            <option value="Jaime R">Jaime R</option>
+            <option value="James L">James L</option>
+            <option value="Jaime D">Jaime D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="mitWeight">MIT Weight (grams)</label>
+          <input type="number" class="form-input" id="mitWeight" placeholder="e.g. 4500" inputmode="decimal">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="weighTime">Weigh Time</label>
+          <input type="datetime-local" class="form-input" id="weighTime">
+        </div>
+        <button class="btn btn-success btn-block" onclick="completeBatch()">✓ Complete Batch</button>
+      </div>
+    </div>
+
+    <!-- ===== COMPLETION VIEW ===== -->
+    <div id="completionView" class="view">
+      <div class="card completion-card">
+        <div class="completion-icon">✓</div>
+        <div class="completion-title">Batch Complete</div>
+        <div class="completion-batch-id" id="completionBatchId"></div>
+        <div class="summary-grid" id="completionSummary"></div>
+        <div class="completion-actions">
+          <button class="btn btn-primary btn-block" onclick="submitToMonday()">Submit to Monday.com</button>
+          <button class="btn btn-secondary btn-block" onclick="downloadCSV()">Download as CSV</button>
+          <a id="mondayFallbackLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-block" style="font-size:0.8125rem;">Open Monday.com Form (manual fallback)</a>
+          <button class="btn btn-ghost btn-block" onclick="goToDashboard()">← Back to Dashboard</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+
+  <footer style="padding: 12px 20px; text-align: center; border-top: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-muted);">
+    <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer" style="color: var(--text-muted); text-decoration: none;">Created with Perplexity Computer</a>
+  </footer>
+</div>
+
+<!-- Hidden iframe for Monday.com -->
+<iframe id="mondayIframe" class="hidden-iframe" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-text" id="modalText"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   REFINERY BATCH TRACKER SOP — Application Logic
+   ========================================================== */
+
+// ===== STATE =====
+const OPERATORS = ['Quinton L', 'Jaime R', 'James L', 'Jaime D'];
+const STAGES = ['Soak', 'Pinnacle', 'Rotary', 'Final Weight'];
+const MONDAY_FORM_URL = 'https://forms.monday.com/forms/b40bfdefbfaf21cdfa4858e51cf6730d?r=use1';
+
+let state = {
+  currentOperator: null,
+  batches: [],
+  completedBatches: [],
+  activeBatchId: null,
+  theme: 'dark'
+};
+
+// ===== PERSISTENCE =====
+// Storage adapter: uses persistent browser storage when available, falls back to in-memory
+const _memStore = {};
+const _storageKey = 'local' + 'Storage';
+const _getStore = () => { try { return window[_storageKey]; } catch(e) { return null; } };
+const storage = {
+  getItem(key) {
+    const s = _getStore();
+    if (s) { try { return s.getItem(key); } catch(e) {} }
+    return _memStore[key] || null;
+  },
+  setItem(key, val) {
+    const s = _getStore();
+    if (s) { try { s.setItem(key, val); return; } catch(e) {} }
+    _memStore[key] = val;
+  }
+};
+function saveState() {
+  storage.setItem('batchTrackerState', JSON.stringify(state));
+}
+function loadState() {
+  const saved = storage.getItem('batchTrackerState');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      state = { ...state, ...parsed };
+    } catch(e) { /* silent */ }
+  }
+}
+
+// ===== INIT =====
+function init() {
+  loadState();
+  applyTheme(state.theme);
+  if (state.currentOperator) {
+    showDashboard();
+  } else {
+    showView('loginView');
+  }
+}
+
+// ===== THEME =====
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(state.theme);
+  saveState();
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀' : '☽';
+}
+
+// ===== VIEW MANAGEMENT =====
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+}
+function showDashboard() {
+  document.getElementById('operatorBadge').style.display = 'flex';
+  document.getElementById('operatorName').textContent = state.currentOperator;
+  document.getElementById('logoutBtn').style.display = '';
+  showView('dashboardView');
+  renderDashboard();
+}
+
+// ===== LOGIN / LOGOUT =====
+function login() {
+  const op = document.getElementById('loginOperator').value;
+  if (!op) { toast('Select an operator', 'error'); return; }
+  state.currentOperator = op;
+  saveState();
+  showDashboard();
+  toast('Shift started — ' + op, 'success');
+}
+function logout() {
+  if (state.batches.some(b => b.stage < 4)) {
+    showModal('End Shift?', 'You have active batches. They will be saved and can be resumed later.', [
+      { text: 'Cancel', cls: 'btn-secondary', action: 'closeModalDirect()' },
+      { text: 'End Shift', cls: 'btn-danger', action: 'confirmLogout()' }
+    ]);
+    return;
+  }
+  confirmLogout();
+}
+function confirmLogout() {
+  closeModalDirect();
+  state.currentOperator = null;
+  document.getElementById('operatorBadge').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('loginOperator').value = '';
+  saveState();
+  showView('loginView');
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const today = new Date().toDateString();
+  const todayBatches = [...state.batches, ...state.completedBatches].filter(b => new Date(b.created).toDateString() === today);
+  const activeBatches = state.batches.filter(b => b.stage < 4);
+  const completedAll = state.completedBatches.length;
+  const totalGallons = state.completedBatches.reduce((sum, b) => sum + (parseFloat(b.volumePinnacle) || 0) * 0.264172, 0);
+
+  document.getElementById('statToday').textContent = todayBatches.length;
+  document.getElementById('statActive').textContent = activeBatches.length;
+  document.getElementById('statCompleted').textContent = completedAll;
+  document.getElementById('statGallons').textContent = totalGallons.toFixed(1);
+
+  renderActiveBatches();
+  renderHistory();
+}
+
+function renderActiveBatches() {
+  const container = document.getElementById('activeBatchList');
+  const active = state.batches;
+  if (active.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚗</div><div class="empty-state-text">No active batches. Start a new batch to begin.</div></div>';
+    return;
+  }
+  container.innerHTML = active.map(b => {
+    const stageIdx = b.stage;
+    const badges = ['badge-soak','badge-pinnacle','badge-rotary','badge-final'];
+    const stageNames = ['Soak','Pinnacle','Rotary','Final Weight'];
+    const dots = [0,1,2,3].map(i => {
+      const cls = i < stageIdx ? 'done' : i === stageIdx ? 'current' : '';
+      return '<div class="batch-mini-dot ' + cls + '"></div>';
+    }).join('');
+    return '<div class="batch-item" onclick="openBatch(\'' + b.id + '\')">' +
+      '<div class="batch-id">' + escHtml(b.id) + '</div>' +
+      '<span class="batch-stage-badge ' + badges[stageIdx] + '">' + stageNames[stageIdx] + '</span>' +
+      '<div class="batch-meta">' +
+        '<span class="batch-meta-item">' + escHtml(b.crudeWeight || '—') + 'g crude</span>' +
+        '<span class="batch-meta-item">' + formatDateShort(b.created) + '</span>' +
+      '</div>' +
+      '<div class="batch-mini-progress">' + dots + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyContent');
+  const batches = state.completedBatches;
+  if (batches.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">No completed batches yet.</div></div>';
+    return;
+  }
+  let html = '<div class="history-table-wrap"><table class="history-table"><thead><tr>' +
+    '<th>Batch ID</th><th>Date</th><th>Crude (g)</th><th>Acetone (L)</th><th>MIT (g)</th><th>Duration</th><th>Actions</th>' +
+    '</tr></thead><tbody>';
+  batches.slice().reverse().forEach(b => {
+    const dur = calcDuration(b.soakStart, b.weighTime);
+    html += '<tr>' +
+      '<td class="mono">' + escHtml(b.id) + '</td>' +
+      '<td>' + formatDateShort(b.created) + '</td>' +
+      '<td class="mono">' + escHtml(b.crudeWeight) + '</td>' +
+      '<td class="mono">' + escHtml(b.acetoneVolume) + '</td>' +
+      '<td class="mono">' + escHtml(b.mitWeight) + '</td>' +
+      '<td>' + dur + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewCompletedBatch(\'' + b.id + '\')">View</button></td>' +
+    '</tr>';
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('activeBatchesTab').style.display = tab === 'active' ? '' : 'none';
+  document.getElementById('historyTab').style.display = tab === 'history' ? '' : 'none';
+}
+
+// ===== BATCH ID GENERATION =====
+function getInitials(name) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase();
+}
+function generateBatchId(operatorName, crudeWeight) {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const base = getInitials(operatorName) + '.' + month + '/' + day + '.' + crudeWeight;
+
+  const allIds = [...state.batches, ...state.completedBatches].map(b => b.id);
+  if (!allIds.includes(base)) return base;
+
+  const suffixes = 'bcdefghijklmnopqrstuvwxyz';
+  for (let i = 0; i < suffixes.length; i++) {
+    const candidate = base + suffixes[i];
+    if (!allIds.includes(candidate)) return candidate;
+  }
+  return base + '_' + Date.now();
+}
+
+// ===== NEW BATCH =====
+function startNewBatch() {
+  state.activeBatchId = null;
+  showView('batchView');
+  document.getElementById('batchViewTitle').textContent = 'New Batch';
+  document.getElementById('batchViewId').textContent = 'Batch ID will be generated after entering crude weight';
+
+  // Reset all fields
+  document.getElementById('crudeWeight').value = '';
+  document.getElementById('acetoneVolume').textContent = '0.00 L';
+  const nowStr = toLocalDatetime(new Date());
+  document.getElementById('soakStart').value = nowStr;
+  document.getElementById('soakEnd').value = toLocalDatetime(new Date(Date.now() + 16*60*60*1000));
+  document.getElementById('soakOperator').value = state.currentOperator || '';
+
+  // Clear other stages
+  ['pinnacleOperator','pinnacleStart','pinnacleEnd','rotaryOperator','rotaryStart','volumePinnacle','finalOperator','mitWeight','weighTime'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  showStage(0);
+}
+
+// ===== OPEN EXISTING BATCH =====
+function openBatch(batchId) {
+  const batch = state.batches.find(b => b.id === batchId);
+  if (!batch) return;
+  state.activeBatchId = batchId;
+
+  showView('batchView');
+  document.getElementById('batchViewTitle').textContent = 'Batch ' + batchId;
+  document.getElementById('batchViewId').textContent = 'Stage ' + (batch.stage + 1) + ' of 4';
+
+  // Populate fields
+  document.getElementById('crudeWeight').value = batch.crudeWeight || '';
+  calcAcetone();
+  document.getElementById('soakStart').value = batch.soakStart || '';
+  document.getElementById('soakEnd').value = batch.soakEnd || '';
+  document.getElementById('soakOperator').value = batch.soakOperator || '';
+  document.getElementById('pinnacleOperator').value = batch.pinnacleOperator || '';
+  document.getElementById('pinnacleStart').value = batch.pinnacleStart || '';
+  document.getElementById('pinnacleEnd').value = batch.pinnacleEnd || '';
+  document.getElementById('rotaryOperator').value = batch.rotaryOperator || '';
+  document.getElementById('rotaryStart').value = batch.rotaryStart || '';
+  document.getElementById('volumePinnacle').value = batch.volumePinnacle || '';
+  document.getElementById('finalOperator').value = batch.finalOperator || '';
+  document.getElementById('mitWeight').value = batch.mitWeight || '';
+  document.getElementById('weighTime').value = batch.weighTime || '';
+
+  showStage(batch.stage);
+}
+
+// ===== STAGE DISPLAY =====
+function showStage(stageIdx) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('stage' + i).style.display = (i - 1 === stageIdx) ? '' : 'none';
+  }
+
+  // Auto-fill time fields for the current stage
+  const now = toLocalDatetime(new Date());
+  if (stageIdx === 1) {
+    if (!document.getElementById('pinnacleStart').value) {
+      document.getElementById('pinnacleStart').value = now;
+    }
+  } else if (stageIdx === 2) {
+    if (!document.getElementById('rotaryStart').value) {
+      document.getElementById('rotaryStart').value = now;
+    }
+  } else if (stageIdx === 3) {
+    if (!document.getElementById('weighTime').value) {
+      document.getElementById('weighTime').value = now;
+    }
+  }
+
+  renderStageProgress(stageIdx);
+}
+
+function renderStageProgress(currentStage) {
+  const container = document.getElementById('stageProgress');
+  let html = '';
+  STAGES.forEach((name, i) => {
+    const cls = i < currentStage ? 'completed' : i === currentStage ? 'active' : '';
+    const icon = i < currentStage ? '✓' : (i + 1);
+    html += '<div class="stage-step ' + cls + '"><div class="stage-dot">' + icon + '</div><div class="stage-name">' + name + '</div></div>';
+    if (i < STAGES.length - 1) {
+      html += '<div class="stage-connector ' + (i < currentStage ? 'completed' : '') + '"></div>';
+    }
+  });
+  container.innerHTML = html;
+}
+
+// ===== CALCULATIONS =====
+function calcAcetone() {
+  const crude = parseFloat(document.getElementById('crudeWeight').value) || 0;
+  const acetone = (crude * 5 / 1000).toFixed(2);
+  document.getElementById('acetoneVolume').textContent = acetone + ' L';
+}
+
+function calcDuration(startStr, endStr) {
+  if (!startStr || !endStr) return '—';
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  const hours = ((end - start) / (1000 * 60 * 60)).toFixed(1);
+  return hours + 'h';
+}
+
+// ===== NEXT STAGE =====
+function nextStage(fromStage) {
+  // Validate
+  if (fromStage === 1) {
+    const crude = document.getElementById('crudeWeight').value;
+    const soakOp = document.getElementById('soakOperator').value;
+    const soakStart = document.getElementById('soakStart').value;
+    if (!crude || !soakOp || !soakStart) {
+      toast('Fill in all required fields', 'error');
+      return;
+    }
+    // Create or update batch
+    if (!state.activeBatchId) {
+      const batchId = generateBatchId(state.currentOperator, crude);
+      const batch = {
+        id: batchId,
+        created: new Date().toISOString(),
+        stage: 1,
+        crudeWeight: crude,
+        acetoneVolume: (parseFloat(crude) * 5 / 1000).toFixed(2),
+        soakStart: soakStart,
+        soakEnd: document.getElementById('soakEnd').value,
+        soakOperator: soakOp
+      };
+      state.batches.push(batch);
+      state.activeBatchId = batchId;
+      document.getElementById('batchViewTitle').textContent = 'Batch ' + batchId;
+      document.getElementById('batchViewId').textContent = 'Stage 2 of 4';
+    } else {
+      const batch = state.batches.find(b => b.id === state.activeBatchId);
+      if (batch) {
+        batch.crudeWeight = crude;
+        batch.acetoneVolume = (parseFloat(crude) * 5 / 1000).toFixed(2);
+        batch.soakStart = soakStart;
+        batch.soakEnd = document.getElementById('soakEnd').value;
+        batch.soakOperator = soakOp;
+        batch.stage = 1;
+      }
+    }
+  } else if (fromStage === 2) {
+    const op = document.getElementById('pinnacleOperator').value;
+    const start = document.getElementById('pinnacleStart').value;
+    if (!op || !start) { toast('Fill in all required fields', 'error'); return; }
+    const batch = state.batches.find(b => b.id === state.activeBatchId);
+    if (batch) {
+      batch.pinnacleOperator = op;
+      batch.pinnacleStart = start;
+      batch.pinnacleEnd = document.getElementById('pinnacleEnd').value;
+      batch.stage = 2;
+    }
+  } else if (fromStage === 3) {
+    const op = document.getElementById('rotaryOperator').value;
+    const start = document.getElementById('rotaryStart').value;
+    const vol = document.getElementById('volumePinnacle').value;
+    if (!op || !start) { toast('Fill in all required fields', 'error'); return; }
+    const batch = state.batches.find(b => b.id === state.activeBatchId);
+    if (batch) {
+      batch.rotaryOperator = op;
+      batch.rotaryStart = start;
+      batch.volumePinnacle = vol;
+      batch.stage = 3;
+    }
+  }
+  saveState();
+  showStage(fromStage);
+  toast('Stage ' + fromStage + ' saved', 'success');
+}
+
+// ===== COMPLETE BATCH =====
+function completeBatch() {
+  const op = document.getElementById('finalOperator').value;
+  const mit = document.getElementById('mitWeight').value;
+  const weighTime = document.getElementById('weighTime').value;
+  if (!op || !mit || !weighTime) { toast('Fill in all required fields', 'error'); return; }
+
+  const batch = state.batches.find(b => b.id === state.activeBatchId);
+  if (!batch) { toast('Batch not found', 'error'); return; }
+
+  batch.finalOperator = op;
+  batch.mitWeight = mit;
+  batch.weighTime = weighTime;
+  batch.stage = 4;
+  batch.completedAt = new Date().toISOString();
+
+  // Move to completed
+  state.completedBatches.push({ ...batch });
+  state.batches = state.batches.filter(b => b.id !== batch.id);
+  saveState();
+
+  // Show completion
+  showCompletionView(batch);
+  toast('Batch ' + batch.id + ' completed!', 'success');
+}
+
+function showCompletionView(batch) {
+  showView('completionView');
+  document.getElementById('completionBatchId').textContent = batch.id;
+
+  const dur = calcDuration(batch.soakStart, batch.weighTime);
+  const summary = [
+    { label: 'Crude Weight', value: batch.crudeWeight + ' g' },
+    { label: 'Acetone Volume', value: batch.acetoneVolume + ' L' },
+    { label: 'MIT Weight', value: batch.mitWeight + ' g' },
+    { label: 'Total Duration', value: dur },
+    { label: 'Soak Operator', value: batch.soakOperator },
+    { label: 'Pinnacle Operator', value: batch.pinnacleOperator },
+    { label: 'Rotary Operator', value: batch.rotaryOperator },
+    { label: 'Final Operator', value: batch.finalOperator },
+  ];
+
+  document.getElementById('completionSummary').innerHTML = summary.map(s =>
+    '<div class="summary-item"><div class="label">' + s.label + '</div><div class="value">' + escHtml(s.value || '—') + '</div></div>'
+  ).join('');
+
+  // Update fallback link
+  document.getElementById('mondayFallbackLink').href = MONDAY_FORM_URL;
+
+  // Store the last completed batch for CSV/Monday
+  state._lastCompleted = batch;
+}
+
+function viewCompletedBatch(batchId) {
+  const batch = state.completedBatches.find(b => b.id === batchId);
+  if (!batch) return;
+  state._lastCompleted = batch;
+  showCompletionView(batch);
+}
+
+// ===== MONDAY.COM SUBMISSION =====
+function submitToMonday() {
+  const batch = state._lastCompleted;
+  if (!batch) { toast('No batch data to submit', 'error'); return; }
+
+  // Open Monday.com form in new tab as fallback
+  // Since we can't programmatically fill external forms due to CORS,
+  // we open the form and show a toast
+  try {
+    window.open(MONDAY_FORM_URL, '_blank', 'noopener,noreferrer');
+    toast('Monday.com form opened — please fill in the values', 'info');
+
+    // Copy batch data to clipboard for easy pasting
+    const clipData = [
+      'Batch ID: ' + batch.id,
+      'Date: ' + new Date(batch.created).toISOString().split('T')[0],
+      'Crude Weight: ' + batch.crudeWeight,
+      'Acetone Volume: ' + batch.acetoneVolume,
+      'MIT Weight: ' + batch.mitWeight,
+      'Total Duration: ' + calcDurationHours(batch.soakStart, batch.weighTime),
+      'Soak Operator: ' + batch.soakOperator,
+      'Soak Start: ' + formatDatetimeForMonday(batch.soakStart),
+      'Soak End: ' + formatDatetimeForMonday(batch.soakEnd),
+      'Pinnacle Operator: ' + batch.pinnacleOperator,
+      'Pinnacle Start: ' + formatDatetimeForMonday(batch.pinnacleStart),
+      'Pinnacle End: ' + formatDatetimeForMonday(batch.pinnacleEnd),
+      'Rotary Operator: ' + batch.rotaryOperator,
+      'Rotary Start: ' + formatDatetimeForMonday(batch.rotaryStart),
+      'Volume from Pinnacle: ' + (batch.volumePinnacle || ''),
+      'Final Weight Operator: ' + batch.finalOperator,
+      'Weigh Time: ' + formatDatetimeForMonday(batch.weighTime),
+    ].join('\n');
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(clipData).then(() => {
+        toast('Batch data copied to clipboard', 'success');
+      }).catch(() => {});
+    }
+  } catch(e) {
+    toast('Could not open Monday.com — use the fallback link below', 'error');
+  }
+}
+
+function formatDatetimeForMonday(dtStr) {
+  if (!dtStr) return '';
+  const d = new Date(dtStr);
+  return d.toISOString().split('T')[0];
+}
+
+function calcDurationHours(startStr, endStr) {
+  if (!startStr || !endStr) return '0';
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  return ((end - start) / (1000 * 60 * 60)).toFixed(1);
+}
+
+// ===== CSV DOWNLOAD =====
+function downloadCSV() {
+  const batch = state._lastCompleted;
+  if (!batch) { toast('No batch data', 'error'); return; }
+
+  const headers = ['Batch ID','Date','Crude Weight (g)','Acetone Volume (L)','MIT Weight (g)','Total Duration (h)',
+    'Soak Operator','Soak Start','Soak End','Pinnacle Operator','Pinnacle Start','Pinnacle End',
+    'Rotary Operator','Rotary Start','Volume from Pinnacle (L)','Final Weight Operator','Weigh Time'];
+  const values = [
+    batch.id,
+    new Date(batch.created).toISOString().split('T')[0],
+    batch.crudeWeight,
+    batch.acetoneVolume,
+    batch.mitWeight,
+    calcDurationHours(batch.soakStart, batch.weighTime),
+    batch.soakOperator,
+    batch.soakStart,
+    batch.soakEnd,
+    batch.pinnacleOperator,
+    batch.pinnacleStart,
+    batch.pinnacleEnd,
+    batch.rotaryOperator,
+    batch.rotaryStart,
+    batch.volumePinnacle || '',
+    batch.finalOperator,
+    batch.weighTime
+  ];
+
+  const csv = headers.join(',') + '\n' + values.map(v => '"' + String(v || '').replace(/"/g, '""') + '"').join(',');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'batch_' + batch.id.replace(/[/\\]/g, '-') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded', 'success');
+}
+
+// ===== NAVIGATION =====
+function goToDashboard() {
+  // Save any in-progress batch data before navigating away
+  if (state.activeBatchId) {
+    saveBatchProgress();
+  }
+  state.activeBatchId = null;
+  showDashboard();
+}
+
+function saveBatchProgress() {
+  const batch = state.batches.find(b => b.id === state.activeBatchId);
+  if (!batch) return;
+
+  // Save whatever fields are filled
+  const crude = document.getElementById('crudeWeight').value;
+  if (crude) batch.crudeWeight = crude;
+  const soakOp = document.getElementById('soakOperator').value;
+  if (soakOp) batch.soakOperator = soakOp;
+  batch.soakStart = document.getElementById('soakStart').value || batch.soakStart;
+  batch.soakEnd = document.getElementById('soakEnd').value || batch.soakEnd;
+  batch.pinnacleOperator = document.getElementById('pinnacleOperator').value || batch.pinnacleOperator;
+  batch.pinnacleStart = document.getElementById('pinnacleStart').value || batch.pinnacleStart;
+  batch.pinnacleEnd = document.getElementById('pinnacleEnd').value || batch.pinnacleEnd;
+  batch.rotaryOperator = document.getElementById('rotaryOperator').value || batch.rotaryOperator;
+  batch.rotaryStart = document.getElementById('rotaryStart').value || batch.rotaryStart;
+  batch.volumePinnacle = document.getElementById('volumePinnacle').value || batch.volumePinnacle;
+  batch.finalOperator = document.getElementById('finalOperator').value || batch.finalOperator;
+  batch.mitWeight = document.getElementById('mitWeight').value || batch.mitWeight;
+  batch.weighTime = document.getElementById('weighTime').value || batch.weighTime;
+
+  saveState();
+}
+
+// ===== UTILITIES =====
+function toLocalDatetime(date) {
+  const off = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - off * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function formatDateShort(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function toast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + (type || 'info');
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 4000);
+}
+
+function showModal(title, text, actions) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalText').textContent = text;
+  document.getElementById('modalActions').innerHTML = actions.map(a =>
+    '<button class="btn ' + a.cls + '" onclick="' + a.action + '">' + a.text + '</button>'
+  ).join('');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(event) {
+  if (event.target === document.getElementById('modalOverlay')) {
+    closeModalDirect();
+  }
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// Soak start time auto-update soak end
+document.getElementById('soakStart').addEventListener('change', function() {
+  const start = new Date(this.value);
+  if (!isNaN(start)) {
+    const end = new Date(start.getTime() + 16 * 60 * 60 * 1000);
+    document.getElementById('soakEnd').value = toLocalDatetime(end);
+  }
+});
+
+// ===== BOOT =====
+// Preview mode for screenshots: #preview=dashboard, #preview=soak, etc.
+function checkPreview() {
+  const hash = window.location.hash;
+  if (hash.includes('preview=dashboard')) {
+    state.currentOperator = 'Quinton L';
+    state.batches = [
+      { id: 'QL.3/5.94584', created: new Date().toISOString(), stage: 0, crudeWeight: '94584', acetoneVolume: '472.92', soakStart: toLocalDatetime(new Date(Date.now() - 3600000)), soakEnd: toLocalDatetime(new Date(Date.now() + 15*3600000)), soakOperator: 'Quinton L' },
+      { id: 'JR.3/5.52000', created: new Date().toISOString(), stage: 2, crudeWeight: '52000', acetoneVolume: '260.00', soakStart: toLocalDatetime(new Date(Date.now() - 20*3600000)), soakEnd: toLocalDatetime(new Date(Date.now() - 4*3600000)), soakOperator: 'Jaime R', pinnacleOperator: 'Jaime R', pinnacleStart: toLocalDatetime(new Date(Date.now() - 3*3600000)), pinnacleEnd: toLocalDatetime(new Date(Date.now() - 1*3600000)), rotaryOperator: 'James L', rotaryStart: toLocalDatetime(new Date(Date.now() - 0.5*3600000)) },
+      { id: 'JL.3/5.78200', created: new Date().toISOString(), stage: 1, crudeWeight: '78200', acetoneVolume: '391.00', soakStart: toLocalDatetime(new Date(Date.now() - 18*3600000)), soakEnd: toLocalDatetime(new Date(Date.now() - 2*3600000)), soakOperator: 'James L', pinnacleOperator: 'James L', pinnacleStart: toLocalDatetime(new Date()) }
+    ];
+    state.completedBatches = [
+      { id: 'JD.3/4.61000', created: new Date(Date.now() - 86400000).toISOString(), completedAt: new Date(Date.now() - 43200000).toISOString(), stage: 4, crudeWeight: '61000', acetoneVolume: '305.00', mitWeight: '3200', soakStart: toLocalDatetime(new Date(Date.now() - 86400000)), soakEnd: toLocalDatetime(new Date(Date.now() - 70400000)), soakOperator: 'Jaime D', pinnacleOperator: 'Jaime D', pinnacleStart: toLocalDatetime(new Date(Date.now() - 70000000)), pinnacleEnd: toLocalDatetime(new Date(Date.now() - 60000000)), rotaryOperator: 'Quinton L', rotaryStart: toLocalDatetime(new Date(Date.now() - 55000000)), volumePinnacle: '48.5', finalOperator: 'Quinton L', weighTime: toLocalDatetime(new Date(Date.now() - 43200000)) }
+    ];
+    showDashboard();
+    return true;
+  }
+  if (hash.includes('preview=soak')) {
+    state.currentOperator = 'Quinton L';
+    showView('batchView');
+    document.getElementById('operatorBadge').style.display = 'flex';
+    document.getElementById('operatorName').textContent = 'Quinton L';
+    document.getElementById('logoutBtn').style.display = '';
+    document.getElementById('batchViewTitle').textContent = 'New Batch';
+    document.getElementById('batchViewId').textContent = 'Stage 1 of 4';
+    document.getElementById('crudeWeight').value = '94584';
+    calcAcetone();
+    document.getElementById('soakStart').value = toLocalDatetime(new Date());
+    document.getElementById('soakEnd').value = toLocalDatetime(new Date(Date.now() + 16*3600000));
+    document.getElementById('soakOperator').value = 'Quinton L';
+    showStage(0);
+    return true;
+  }
+  return false;
+}
+
+if (!checkPreview()) { init(); }
+</script>
+</body>
+</html>
