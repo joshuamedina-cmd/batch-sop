@@ -696,7 +696,6 @@ body {
         <div class="completion-actions">
           <button class="btn btn-secondary btn-block" onclick="downloadCSV()">Download as CSV</button>
           <button class="btn btn-ghost btn-block" onclick="retryMondaySubmit()" id="retryMondayBtn" style="display:none;">⟳ Retry Monday.com Submission</button>
-          <a id="mondayFallbackLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-block" style="font-size:0.8125rem; display:none;">Open Monday.com Form (manual fallback)</a>
           <button class="btn btn-ghost btn-block" onclick="goToDashboard()">← Back to Dashboard</button>
         </div>
       </div>
@@ -1167,8 +1166,6 @@ function showCompletionView(batch) {
   // Reset Monday status display
   document.getElementById('mondayStatus').style.display = 'none';
   document.getElementById('retryMondayBtn').style.display = 'none';
-  document.getElementById('mondayFallbackLink').style.display = 'none';
-  document.getElementById('mondayFallbackLink').href = MONDAY_FORM_URL;
 
   // Store the last completed batch for CSV/Monday
   state._lastCompleted = batch;
@@ -1387,8 +1384,6 @@ function openMondayWithClipboard(formData, batch) {
 
   window.open(MONDAY_FORM_URL, '_blank', 'noopener,noreferrer');
   updateMondayStatus('fallback', 'Opened Monday.com form — data copied to clipboard');
-  document.getElementById('mondayFallbackLink').style.display = '';
-  document.getElementById('mondayFallbackLink').href = MONDAY_FORM_URL;
   document.getElementById('retryMondayBtn').style.display = '';
 }
 
